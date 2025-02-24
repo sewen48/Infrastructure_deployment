@@ -1,7 +1,7 @@
 # configured aws provider with proper credentials
 provider "aws" {
   region    = "us-east-1"
-  profile   = "yusuf"
+  profile   = "ganiyy"
 }
 
 
@@ -89,7 +89,7 @@ resource "aws_instance" "ec2_instance" {
   instance_type          = "t2.small"
   subnet_id              = aws_default_subnet.default_az1.id
   vpc_security_group_ids = [aws_security_group.ec2_security_group.id]
-  key_name               = "devopskeypair"
+  key_name               = "zeeKP"
 
   tags = {
     Name = "jenkins_server"
@@ -104,21 +104,21 @@ resource "null_resource" "name" {
   connection {
     type        = "ssh"
     user        = "ubuntu"
-    private_key = file("~/Downloads/devopskeypair.pem")
+    private_key = file("~/Downloads/zeeKP.pem")
     host        = aws_instance.ec2_instance.public_ip
   }
 
   # copy the install_jenkins.sh file from your computer to the ec2 instance 
   provisioner "file" {
     source      = "install_jenkins.sh"
-    destination = "/tmp/install_jenkins.sh"
+    destination = "/home/ubuntu/install_jenkins.sh"
   }
 
   # set permissions and run the install_jenkins.sh file
   provisioner "remote-exec" {
     inline = [
-        "sudo chmod +x /tmp/install_jenkins.sh",
-        "sh /tmp/install_jenkins.sh",
+        "sudo chmod +x /home/ubuntu/install_jenkins.sh",
+        "sh /home/ubuntu/install_jenkins.sh",
     ]
   }
 
