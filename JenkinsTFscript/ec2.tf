@@ -70,17 +70,17 @@ data "aws_ami" "ubuntu" {
 
     most_recent = true
 
-    filter {
+      filter {
         name   = "name"
         values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
-    }
+      }
 
-    filter {
+      filter {
         name = "virtualization-type"
         values = ["hvm"]
-    }
+      }
 
-    owners = ["099720109477"]
+      owners = ["099720109477"]
 }
 
 # launch the ec2 instance
@@ -96,38 +96,47 @@ resource "aws_instance" "ec2_instance" {
   }
 }
 
-
-# an empty resource block
-resource "null_resource" "name" {
-
-  # ssh into the ec2 instance 
+resource "null_resource" "jenkins_install" {
   connection {
     type        = "ssh"
     user        = "ubuntu"
     private_key = file("~/Downloads/zeeKP.pem")
     host        = aws_instance.ec2_instance.public_ip
+    timeout     = "5m"
   }
-
-  # copy the install_jenkins.sh file from your computer to the ec2 instance 
-  provisioner "file" {
-    source      = "install_jenkins.sh"
-    destination = "/home/ubuntu/install_jenkins.sh"
-  }
-
-  # set permissions and run the install_jenkins.sh file
+ 
   provisioner "remote-exec" {
     inline = [
-        "sudo chmod +x /home/ubuntu/install_jenkins.sh",
-        "sh /home/ubuntu/install_jenkins.sh",
+      "sudo apt-get update",
+      "sudo apt-get install -y software-properties-common apt-transport-https wget",
+      "sudo curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null",
+      "sudo echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/ | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null",
+      "sudo apt-get update",
+      "sudo apt-get install -y openjdk-17-jre-headless",
+      "sudo apt-get install -y jenkins",
+      "sudo systemctl start jenkins",
+      "sudo systemctl enable jenkins",
+      "sudo apt-get install -y maven",
+      "wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg",
+      "echo \"deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main\" | sudo tee /etc/apt/sources.list.d/hashicorp.list > /dev/null",
+      "sudo apt-get update",
+      "sudo apt-get install -y terraform",
+      "sleep 30",  # Wait for Jenkins to start
+      "sudo cat /var/lib/jenkins/secrets/initialAdminPassword > /home/ubuntu/jenkins_password.txt",
+      "sudo chown ubuntu:ubuntu /home/ubuntu/jenkins_password.txt",
+      "sudo chmod 600 /home/ubuntu/jenkins_password.txt",
+      "echo 'Jenkins installation completed. Password saved to /home/ubuntu/jenkins_password.txt'"
     ]
   }
-
-  # wait for ec2 to be created
+ 
   depends_on = [aws_instance.ec2_instance]
 }
 
-
-# print the url of the jenkins server
-output "website_url" {
-  value     = join ("", ["http://", aws_instance.ec2_instance.public_dns, ":", "8080"])
+output "jenkins_password_location" {
+  value = "/home/ubuntu/jenkins_password.txt"
 }
+
+output "jenkins_url" {
+  value = "http://${aws_instance.ec2_instance.public_dns}:8080"
+}
+
